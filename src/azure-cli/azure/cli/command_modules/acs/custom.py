@@ -1533,6 +1533,10 @@ def aks_create(
     node_resource_group=None,
     enable_defender=False,
     defender_config=None,
+    enable_azure_keyvault_kms=False,
+    azure_keyvault_kms_key_id=None,
+    azure_keyvault_kms_key_vault_network_access=None,
+    azure_keyvault_kms_key_vault_resource_id=None,
     # addons
     enable_addons=None,
     workspace_resource_id=None,
@@ -1566,6 +1570,7 @@ def aks_create(
     vm_set_type=None,
     zones=None,
     ppg=None,
+    http_proxy_config=None,
     max_pods=0,
     enable_encryption_at_host=False,
     enable_ultra_ssd=False,
@@ -1575,6 +1580,7 @@ def aks_create(
     no_wait=False,
     yes=False,
     aks_custom_headers=None,
+    host_group_id=None,
 ):
     # DO NOT MOVE: get all the original parameters and save them as a dictionary
     raw_parameters = locals()
@@ -1638,6 +1644,11 @@ def aks_update(
     enable_defender=False,
     disable_defender=False,
     defender_config=None,
+    enable_azure_keyvault_kms=False,
+    disable_azure_keyvault_kms=False,
+    azure_keyvault_kms_key_id=None,
+    azure_keyvault_kms_key_vault_network_access=None,
+    azure_keyvault_kms_key_vault_resource_id=None,
     # addons
     enable_secret_rotation=False,
     disable_secret_rotation=False,
@@ -1649,6 +1660,7 @@ def aks_update(
     min_count=None,
     max_count=None,
     nodepool_labels=None,
+    http_proxy_config=None,
     no_wait=False,
     yes=False,
     aks_custom_headers=None,
@@ -2548,7 +2560,7 @@ def k8s_install_kubectl(cmd, client_version='latest', install_location=None, sou
         if not found:
             # pylint: disable=logging-format-interpolation
             logger.warning('Please add "{0}" to your search PATH so the `{1}` can be found. 2 options: \n'
-                           '    1. Run "set PATH=%PATH%;{0}" or "$env:path += \'{0}\'" for PowerShell. '
+                           '    1. Run "set PATH=%PATH%;{0}" or "$env:path += \';{0}\'" for PowerShell. '
                            'This is good for the current command session.\n'
                            '    2. Update system PATH environment variable by following '
                            '"Control Panel->System->Advanced->Environment Variables", and re-open the command window. '
@@ -2972,6 +2984,7 @@ def aks_agentpool_add(
     linux_os_config=None,
     no_wait=False,
     aks_custom_headers=None,
+    host_group_id=None,
 ):
     # DO NOT MOVE: get all the original parameters and save them as a dictionary
     raw_parameters = locals()

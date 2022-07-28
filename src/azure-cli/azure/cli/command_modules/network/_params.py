@@ -630,11 +630,6 @@ def load_arguments(self, _):
         c.argument('rule_ids', nargs='+', help='List of rules that will be disabled. If provided, --group-name must be provided too.')
     # region
 
-    # region ApplicationSecurityGroups
-    with self.argument_context('network asg') as c:
-        c.argument('application_security_group_name', name_arg_type, id_part='name', help='The name of the application security group.')
-    # endregion
-
     # region DDoS Protection Plans
     with self.argument_context('network ddos-protection') as c:
         for dest in ['ddos_plan_name', 'ddos_protection_plan_name']:
@@ -1728,6 +1723,9 @@ def load_arguments(self, _):
         c.argument('retention', type=int, help='Number of days to retain logs')
         c.argument('storage_account', help='Name or ID of the storage account in which to save the flow logs. '
                                            'Must be in the same region of flow log.')
+        c.argument('vnet', options_list=['--vnet'], help='Name or ID of the Virtual Network Resource.')
+        c.argument('subnet', options_list=['--subnet'], help='Name or ID of Subnet')
+        c.argument('nic', options_list=['--nic'], help='Name or ID of the Network Interface (NIC) Resource.')
 
     # temporary solution for compatible with old show command's parameter
     # after old show command's parameter is deprecated and removed,
@@ -2268,14 +2266,6 @@ def load_arguments(self, _):
     with self.argument_context('network bastion tunnel') as c:
         c.argument('port', help='Local port to use for the tunneling.', options_list=['--port'])
         c.argument('timeout', help='Timeout for connection to bastion host tunnel.', options_list=['--timeout'])
-    # endregion
-
-    # region security partner provider
-    with self.argument_context('network security-partner-provider') as c:
-        SecurityProviderName = self.get_models('SecurityProviderName')
-        c.argument('security_provider_name', arg_type=get_enum_type(SecurityProviderName), help='The security provider name', options_list=['--provider'])
-        c.argument('security_partner_provider_name', options_list=['--name', '-n'], help='Name of the Security Partner Provider.')
-        c.argument('virtual_hub', options_list=['--vhub'], help='Name or ID of the virtual hub to which the Security Partner Provider belongs.', validator=validate_virtual_hub)
     # endregion
 
     # region PrivateLinkResource and PrivateEndpointConnection
