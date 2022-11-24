@@ -60,9 +60,6 @@ def flexible_server_create(cmd, client,
 
     # Process parameters
     server_name = server_name.lower()
-    if high_availability and high_availability.lower() == 'enabled':
-        logger.warning('\'Enabled\' value for high availability parameter will be deprecated. Please use \'ZoneRedundant\' or \'SameZone\' instead.')
-        high_availability = 'ZoneRedundant'
 
     # MySQL chnged MemoryOptimized tier to BusinessCritical (only in client tool not in list-skus return)
     if tier == 'BusinessCritical':
@@ -89,7 +86,7 @@ def flexible_server_create(cmd, client,
     list_skus_info = get_mysql_list_skus_info(db_context.cmd, location)
     iops_info = list_skus_info['iops_info']
 
-    server_result = firewall_name = subnet_id = None
+    server_result = firewall_name = None
 
     network, start_ip, end_ip = flexible_server_provision_network_resource(cmd=cmd,
                                                                            resource_group_name=resource_group_name,
@@ -125,7 +122,11 @@ def flexible_server_create(cmd, client,
 
     administrator_login_password = generate_password(administrator_login_password)
 
-    identity, data_encryption = build_identity_and_data_encryption(byok_identity, backup_byok_identity, byok_key, backup_byok_key)
+    identity, data_encryption = build_identity_and_data_encryption(db_engine='mysql',
+                                                                   byok_identity=byok_identity,
+                                                                   backup_byok_identity=backup_byok_identity,
+                                                                   byok_key=byok_key,
+                                                                   backup_byok_key=backup_byok_key)
 
     # Create mysql server
     # Note : passing public_access has no effect as the accepted values are 'Enabled' and 'Disabled'. So the value ends up being ignored.
@@ -159,6 +160,7 @@ def flexible_server_create(cmd, client,
     version = server_result.version
     sku = server_result.sku.name
     host = server_result.fully_qualified_domain_name
+    subnet_id = network.delegated_subnet_resource_id
 
     logger.warning('Make a note of your password. If you forget, you would have to reset your password with'
                    '\'az mysql flexible-server update -n %s -g %s -p <new-password>\'.',
@@ -284,7 +286,7 @@ def flexible_server_georestore(cmd, client,
 
         validate_server_name(db_context, server_name, provider + '/flexibleServers')
         validate_georestore_location(db_context, location)
-        validate_georestore_network(source_server_object, public_access, vnet, subnet)
+        validate_georestore_network(source_server_object, public_access, vnet, subnet, 'mysql')
 
         identity, data_encryption = get_identity_and_data_encryption(source_server_object)
 
@@ -345,10 +347,6 @@ def flexible_server_update_custom_func(cmd, client, instance,
         cf_availability_without_location=cf_mysql_check_resource_availability_without_location,
         logging_name='MySQL', command_group='mysql', server_client=client, location=instance.location)
 
-    if high_availability and high_availability.lower() == 'enabled':
-        logger.warning('\'Enabled\' value for high availability parameter will be deprecated. Please use \'ZoneRedundant\' or \'SameZone\' instead.')
-        high_availability = 'ZoneRedundant'
-
     # MySQL chnged MemoryOptimized tier to BusinessCritical (only in client tool not in list-skus return)
     if tier == 'BusinessCritical':
         tier = 'MemoryOptimized'
@@ -371,7 +369,7 @@ def flexible_server_update_custom_func(cmd, client, instance,
                               backup_byok_key=backup_byok_key,
                               disable_data_encryption=disable_data_encryption)
 
-    list_skus_info = get_mysql_list_skus_info(db_context.cmd, location)
+    list_skus_info = get_mysql_list_skus_info(db_context.cmd, location, server_name=instance.name if instance else None)
     iops_info = list_skus_info['iops_info']
 
     server_module_path = instance.__module__
@@ -418,7 +416,11 @@ def flexible_server_update_custom_func(cmd, client, instance,
         else:
             instance.high_availability = mysql_flexibleservers.models.HighAvailability(mode=high_availability)
 
-    identity, data_encryption = build_identity_and_data_encryption(byok_identity, backup_byok_identity, byok_key, backup_byok_key)
+    identity, data_encryption = build_identity_and_data_encryption(db_engine='mysql',
+                                                                   byok_identity=byok_identity,
+                                                                   backup_byok_identity=backup_byok_identity,
+                                                                   byok_key=byok_key,
+                                                                   backup_byok_key=backup_byok_key)
     if disable_data_encryption:
         data_encryption = mysql_flexibleservers.models.DataEncryption(type="SystemManaged")
 
@@ -488,7 +490,7 @@ def server_delete_func(cmd, client, resource_group_name, server_name, yes=None):
 
 def flexible_server_restart(cmd, client, resource_group_name, server_name, fail_over=None):
     instance = client.get(resource_group_name, server_name)
-    if fail_over is not None and instance.high_availability.mode not in ["ZoneRedundant", "Enabled"]:
+    if fail_over is not None and instance.high_availability.mode != "ZoneRedundant":
         raise ArgumentUsageError("Failing over can only be triggered for zone redundant servers.")
 
     if fail_over is not None:
@@ -562,7 +564,7 @@ def flexible_parameter_update(client, server_name, configuration_name, resource_
 
 # Replica commands
 # Custom functions for server replica, will add MySQL part after backend ready in future
-def flexible_replica_create(cmd, client, resource_group_name, source_server, replica_name, zone=None, no_wait=False, location=None, sku_name=None, tier=None, **kwargs):
+def flexible_replica_create(cmd, client, resource_group_name, source_server, replica_name, zone=None, no_wait=False):
     provider = 'Microsoft.DBforMySQL'
     replica_name = replica_name.lower()
 
