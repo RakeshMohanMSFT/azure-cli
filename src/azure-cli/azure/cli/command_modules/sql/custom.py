@@ -17,6 +17,8 @@ from azure.cli.core.util import (
 from azure.mgmt.sql.models import (
     AdministratorName,
     AdministratorType,
+    AdvancedThreatProtectionName,
+    AdvancedThreatProtectionState,
     AuthenticationName,
     BlobAuditingPolicyState,
     CapabilityGroup,
@@ -36,6 +38,7 @@ from azure.mgmt.sql.models import (
     IPv6FirewallRule,
     LedgerDigestUploadsName,
     LongTermRetentionPolicyName,
+    ManagedDatabaseCreateMode,
     ManagedInstanceAzureADOnlyAuthentication,
     ManagedInstanceEncryptionProtector,
     ManagedInstanceExternalAdministrator,
@@ -645,6 +648,12 @@ class ComputeModelType(str, Enum):
 
     provisioned = "Provisioned"
     serverless = "Serverless"
+
+
+class AlwaysEncryptedEnclaveType(str, Enum):
+
+    default = "Default"
+    vbs = "VBS"
 
 
 class DatabaseEdition(str, Enum):
@@ -1540,7 +1549,8 @@ def db_update(
         auto_pause_delay=None,
         compute_model=None,
         requested_backup_storage_redundancy=None,
-        maintenance_configuration_id=None):
+        maintenance_configuration_id=None,
+        preferred_enclave_type=None):
     '''
     Applies requested parameters to a db resource instance for a DB update.
     '''
@@ -1620,6 +1630,9 @@ def db_update(
 
     if high_availability_replica_count is not None:
         instance.high_availability_replica_count = high_availability_replica_count
+
+    if preferred_enclave_type is not None:
+        instance.preferred_enclave_type = preferred_enclave_type
 
     # Set storage_account_type even if storage_acount_type is None
     # Otherwise, empty value defaults to current storage_account_type
@@ -3055,6 +3068,53 @@ def db_threat_detection_policy_update_setter(
         parameters=parameters)
 
 
+def db_advanced_threat_protection_setting_get(
+        client,
+        resource_group_name,
+        server_name,
+        database_name):
+    '''
+    Gets an advanced threat protection setting.
+    '''
+
+    return client.get(
+        resource_group_name=resource_group_name,
+        server_name=server_name,
+        database_name=database_name,
+        advanced_threat_protection_name=AdvancedThreatProtectionName.DEFAULT)
+
+
+def db_advanced_threat_protection_setting_update(
+        cmd,
+        instance,
+        state=None):
+    # pylint: disable=unused-argument
+    '''
+    Updates an advanced threat protection setting. Custom update function to apply parameters to instance.
+    '''
+
+    # Apply state
+    if state:
+        instance.state = AdvancedThreatProtectionState[state.lower()]
+
+    return instance
+
+
+def db_advanced_threat_protection_setting_update_setter(
+        client,
+        resource_group_name,
+        server_name,
+        database_name,
+        parameters):
+
+    return client.create_or_update(
+        resource_group_name=resource_group_name,
+        server_name=server_name,
+        database_name=database_name,
+        advanced_threat_protection_name=AdvancedThreatProtectionName.DEFAULT,
+        parameters=parameters)
+
+
 def db_sensitivity_label_show(
         client,
         database_name,
@@ -4277,6 +4337,54 @@ def server_trust_group_list(
     return client.list_by_location(resource_group_name=resource_group_name, location_name=location)
 
 
+################################################################
+#        sql server advanced-threat-protection-setting         #
+################################################################
+
+
+def server_advanced_threat_protection_setting_get(
+        client,
+        resource_group_name,
+        server_name):
+    '''
+    Gets an advanced threat protection setting.
+    '''
+
+    return client.get(
+        resource_group_name=resource_group_name,
+        server_name=server_name,
+        advanced_threat_protection_name=AdvancedThreatProtectionName.DEFAULT)
+
+
+def server_advanced_threat_protection_setting_update(
+        cmd,
+        instance,
+        state=None):
+    # pylint: disable=unused-argument
+    '''
+    Updates an advanced threat protection setting. Custom update function to apply parameters to instance.
+    '''
+
+    # Apply state
+    if state:
+        instance.state = AdvancedThreatProtectionState[state.lower()]
+
+    return instance
+
+
+def server_advanced_threat_protection_setting_update_setter(
+        client,
+        resource_group_name,
+        server_name,
+        parameters):
+
+    return client.begin_create_or_update(
+        resource_group_name=resource_group_name,
+        server_name=server_name,
+        advanced_threat_protection_name=AdvancedThreatProtectionName.DEFAULT,
+        parameters=parameters)
+
+
 ###############################################
 #                sql managed instance         #
 ###############################################
@@ -4527,6 +4635,54 @@ def managed_instance_update(
 
 
 #####
+#           sql managed instance advanced-threat-protection-setting
+#####
+
+
+def managed_instance_advanced_threat_protection_setting_get(
+        client,
+        resource_group_name,
+        managed_instance_name):
+    '''
+    Gets an advanced threat protection setting.
+    '''
+
+    return client.get(
+        resource_group_name=resource_group_name,
+        managed_instance_name=managed_instance_name,
+        advanced_threat_protection_name=AdvancedThreatProtectionName.DEFAULT)
+
+
+def managed_instance_advanced_threat_protection_setting_update(
+        cmd,
+        instance,
+        state=None):
+    # pylint: disable=unused-argument
+    '''
+    Updates an advanced threat protection setting. Custom update function to apply parameters to instance.
+    '''
+
+    # Apply state
+    if state:
+        instance.state = AdvancedThreatProtectionState[state.lower()]
+
+    return instance
+
+
+def managed_instance_advanced_threat_protection_setting_update_setter(
+        client,
+        resource_group_name,
+        managed_instance_name,
+        parameters):
+
+    return client.begin_create_or_update(
+        resource_group_name=resource_group_name,
+        managed_instance_name=managed_instance_name,
+        advanced_threat_protection_name=AdvancedThreatProtectionName.DEFAULT,
+        parameters=parameters)
+
+
+#####
 #           sql managed instance key
 #####
 
@@ -4764,6 +4920,30 @@ def managed_db_update(
     return instance
 
 
+def managed_db_recover(
+        cmd,
+        client,
+        database_name,
+        managed_instance_name,
+        resource_group_name,
+        recoverable_database_id,
+        **kwargs):
+
+    kwargs['location'] = _get_managed_instance_location(
+        cmd.cli_ctx,
+        managed_instance_name=managed_instance_name,
+        resource_group_name=resource_group_name)
+
+    kwargs['create_mode'] = ManagedDatabaseCreateMode.RECOVERY
+    kwargs['recoverable_database_id'] = recoverable_database_id
+
+    return client.begin_create_or_update(
+        database_name=database_name,
+        managed_instance_name=managed_instance_name,
+        resource_group_name=resource_group_name,
+        parameters=kwargs)
+
+
 def managed_db_restore(
         cmd,
         client,
@@ -4792,7 +4972,7 @@ def managed_db_restore(
         managed_instance_name=managed_instance_name,
         resource_group_name=resource_group_name)
 
-    kwargs['create_mode'] = CreateMode.POINT_IN_TIME_RESTORE
+    kwargs['create_mode'] = ManagedDatabaseCreateMode.POINT_IN_TIME_RESTORE
 
     if deleted_time:
         kwargs['restorable_dropped_database_id'] = _get_managed_dropped_db_resource_id(
@@ -4813,6 +4993,53 @@ def managed_db_restore(
         managed_instance_name=target_managed_instance_name,
         resource_group_name=target_resource_group_name,
         parameters=kwargs)
+
+
+def midb_advanced_threat_protection_setting_get(
+        client,
+        resource_group_name,
+        managed_instance_name,
+        database_name):
+    '''
+    Gets an advanced threat protection setting.
+    '''
+
+    return client.get(
+        resource_group_name=resource_group_name,
+        managed_instance_name=managed_instance_name,
+        database_name=database_name,
+        advanced_threat_protection_name=AdvancedThreatProtectionName.DEFAULT)
+
+
+def midb_advanced_threat_protection_setting_update(
+        cmd,
+        instance,
+        state=None):
+    # pylint: disable=unused-argument
+    '''
+    Updates an advanced threat protection setting. Custom update function to apply parameters to instance.
+    '''
+
+    # Apply state
+    if state:
+        instance.state = AdvancedThreatProtectionState[state.lower()]
+
+    return instance
+
+
+def midb_advanced_threat_protection_setting_update_setter(
+        client,
+        resource_group_name,
+        managed_instance_name,
+        database_name,
+        parameters):
+
+    return client.create_or_update(
+        resource_group_name=resource_group_name,
+        managed_instance_name=managed_instance_name,
+        database_name=database_name,
+        advanced_threat_protection_name=AdvancedThreatProtectionName.DEFAULT,
+        parameters=parameters)
 
 
 def update_short_term_retention_mi(
